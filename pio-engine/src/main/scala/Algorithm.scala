@@ -5,7 +5,8 @@ import org.apache.predictionio.controller.{CustomQuerySerializer, P2LAlgorithm, 
 import org.apache.spark.SparkContext
 import org.apache.spark.mllib.clustering.KMeansModel
 import org.apache.spark.mllib.linalg.Vectors
-import org.apache.spark.mllib.regression.{LinearRegressionModel, LinearRegressionWithSGD}
+import org.apache.spark.mllib.tree.RandomForest
+import org.apache.spark.mllib.tree.model.RandomForestModel
 import org.joda.time.DateTime
 
 case class AlgorithmParams(
@@ -21,18 +22,19 @@ class Algorithm(val ap: AlgorithmParams)
   @transient lazy val logger = Logger[this.type]
 
   def train(sc: SparkContext, preparedData: PreparedData): Model = {
-    val lin = new LinearRegressionWithSGD()
-    lin.setIntercept(true)
-    lin.setValidateData(true)
     preparedData.data.collect().foreach(println)
-    lin.optimizer
-      .setNumIterations(50)
-      .setMiniBatchFraction(1.0)
-      .setStepSize(0.002)
-    val linearRegressionModel = lin.run(preparedData.data, Vectors.dense(0.2, 0.2, 0.5, 0.005, 0.1))
-//    print(linearRegressionModel.intercept)
-//    print(linearRegressionModel.weights)
-    new Model(linearRegressionModel, Preparator.locationClusterModel.get)
+
+    val numClasses = 2
+    val categoricalFeaturesInfo = Map[Int, Int]()
+    val numTrees = 3 // Use more in practice.
+    val featureSubsetStrategy = "auto" // Let the algorithm choose.
+    val impurity = "variance"
+    val maxDepth = 4
+    val maxBins = 32
+
+    val randomForestModel = RandomForest.trainRegressor(preparedData.data, categoricalFeaturesInfo,
+      numTrees, featureSubsetStrategy, impurity, maxDepth, maxBins)
+    new Model(randomForestModel, Preparator.locationClusterModel.get)
   }
 
   def predict(model: Model, query: Query): PredictedResult = {
@@ -41,7 +43,7 @@ class Algorithm(val ap: AlgorithmParams)
   }
 }
 
-class Model(mod: LinearRegressionModel, locationClusterModel: KMeansModel) extends Serializable { // will not be DateTime after changes
+class Model(mod: RandomForestModel, locationClusterModel: KMeansModel) extends Serializable { // will not be DateTime after changes
                                                                                   // to Preparator
   @transient lazy val logger = Logger[this.type]
 
