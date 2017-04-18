@@ -24,12 +24,11 @@ class Algorithm(val ap: AlgorithmParams)
   def train(sc: SparkContext, preparedData: PreparedData): Model = {
     preparedData.data.collect().foreach(println)
 
-    val numClasses = 2
     val categoricalFeaturesInfo = Map[Int, Int]()
     val numTrees = 3 // Use more in practice.
     val featureSubsetStrategy = "auto" // Let the algorithm choose.
     val impurity = "variance"
-    val maxDepth = 4
+    val maxDepth = 10
     val maxBins = 32
 
     val randomForestModel = RandomForest.trainRegressor(preparedData.data, categoricalFeaturesInfo,
